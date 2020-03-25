@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Why Should I Stay Home?</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+
+    <!-- Compiled and minified CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+
+    <!-- Compiled and minified JavaScript -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+
+    <style>
+        #stay_home::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: red;
+            cursor: pointer;
+        }
+
+        #stay_home::-moz-range-thumb {
+            border: 0;
+            background: red;
+            cursor: pointer;
+        }
+
+        * {
+         margin: 0;
+        }
+
+        .bottom {
+            height: 20vh;
+        }
+
+        .animated.rshort {
+            -webkit-clip-path: polygon(0 100%, 100% 0%, 100% 0, 0 0);
+            clip-path: polygon(0 100%, 100% 0%, 100% 0, 0 0);
+            position: relative;
+            bottom: 1px;
+        }
+    </style>
+</head>
+<body>
+<div class="top black white-text" style="padding-top: 50px;">
+    <div class="container">
+        <div>
+            <h3 id="intro"></h3>
+            <h6 id="subtitle">It's incredibly easy to want to go out after being stuck at home all day, but there's no
+                denying
+                <b><i>you may be a host, and you don't even know it.</i></b></h6>
+            <br>
+            <form action="/">
+                <h5 id="range-field"></h5>
+                <h6 id="subtitle"></h6>
+                <p class="range-field red-text">
+                    <input type="range" id="stay_home" min="0" default="100" name="pct"/>
+                </p>
+                <input type="submit" class="btn grey darken-4" value="Crunch the numbers">
+            </form>
+            <br><br>
+        </div>
+    </div>
+    <div class="red">
+        <div class="animated rshort black bottom"></div>
+    </div>
+</div>
+<div class="container" ?>
+    <br>
+    <h4>There would be:</h4>
+    <ul>
+        <li><h5 id="less_deaths"></h5></li>
+        <li><h5 id="less_hosps"></h5></li>
+        <li><h5 id="less_cases"></h5></li>
+        <br>
+        <li><h5 id="less_deaths_next_week"></h5></li>
+        <li><h5 id="less_hosps_next_week"></h5></li>
+        <li><h5 id="less_cases_next_week"></h5></li>
+        <br>
+        <li><h6 id="r0"></h6></li>
+    </ul>
+    <br>
+    <h3>Difference by Day:</h3>
+    <br>
+    <div>
+        <h4>Positive Cases</h4>
+        <canvas id="positive"></canvas>
+    </div>
+    <div class="row">
+        <div class="col s12 m6 col-sm-12 col-md-6">
+            <h4>Deaths</h4>
+            <canvas id="death"></canvas>
+        </div>
+        <div class="col s12 m6 col-sm-12 col-md-6">
+            <h4>Hospitalized</h4>
+            <canvas id="hospitalized"></canvas>
+        </div>
+    </div>
+    </div>
+
+<div id="credits" class="grey darken-4 grey-text text-lighten-3" style="padding-top: 50px; padding-bottom: 50px;">
+    <div class="container">
+        <h5>Please stay at home!</h5>
+
+        <h5>Made with love in Boston, MA by <a href="http://andykamath.com">Anirudh Kamath</a>.</h5>
+        <h5><a href="http://github.com/andykamath/stayhome">Fork me on GitHub!</a> </h5>
+        <h5><a href="https://covidtracking.com/us-daily/">Check out the COVID tracker for more data!</a></h5>
+    </div>
+</div>
+
+<script>
+    var getParams = function () {
+        var url = window.location.href;
+        var params = {};
+        var parser = document.createElement('a');
+        parser.href = url;
+        var query = parser.search.substring(1);
+        var vars = query.split('&');
+        for (var i = 0; i < vars.length; i++) {
+            var pair = vars[i].split('=');
+            params[pair[0]] = decodeURIComponent(pair[1]);
+        }
+        return params;
+    };
+
+    function fillCanvas(data, name) {
+        console.log(data);
+
+        var ctx = document.getElementById(name).getContext('2d');
+        var myChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data['day'].map(x => `Day ${x}`),
+                datasets: [{
+                    label: 'Current',
+                    data: data['expected_' + name],
+                    backgroundColor: Array(data['expected_' + name].length).fill().map((_, i) => 'rgba(255, 99, 132, 0.2)'),
+                }, {
+                    label: 'Hypothetical',
+                    data: data['new_' + name],
+                    backgroundColor: Array(data['expected_' + name].length).fill().map((_, i) => 'rgba(54, 162, 235, 0.2)')
+                }]
+            },
+            options: {
+                scales: {
+                    yAxes: [{
+                        ticks: {
+                            beginAtZero: true
+                        }
+                    }]
+                }
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        console.log("GETPARAMS");
+        var params = getParams();
+        var pct = 5;
+        if (params['pct']) {
+            pct = params['pct'];
+        }
+        document.getElementById('range-field').innerText = `If ${pct} less people were infected a week ago...`;
+        document.getElementById('stay_home').value = pct;
+        $("#stay_home").hide();
+        $.get(`/whatif?pct=${pct}`, function (data, status) {
+            for (name of ['positive', 'death', 'hospitalized']) {
+                fillCanvas(data, name)
+            }
+            var l = data["positive"].length;
+            var week_ago = data["positive"].length - 7;
+            var maxval = data["expected_positive"][week_ago] - data["expected_positive"][week_ago - 1];
+
+            console.log(`MAX VALUE OF A WEEK AGO: ${maxval}`);
+            document.getElementById('intro').innerHTML = `Right now, ${100 * (1 - data["positive_rate"][data["positive_rate"].length - 1]).toFixed(4)}% of infected Americans show <b>no symptoms</b> of COVID-19.`;
+            $("#stay_home").attr('max', maxval);
+            $("#stay_home").show();
+
+            $("#less_cases").html(`<b>${(data["expected_positive"][l - 1] - data["new_positive"][l - 1]).toFixed(0)}</b> less cases today.`);
+            $("#less_cases_next_week").html(`<b>${(data["expected_positive"][l - 1] * Math.pow(data["r0"], 7) - data["new_positive"][l - 1] * Math.pow(data["r0"], 7)).toFixed(0)}</b> less cases a week from now.`);
+            $("#less_deaths").html(`<b>${(data["expected_death"][l - 1] - data["new_death"][l - 1]).toFixed(0)}</b> less deaths today.`);
+            $("#less_deaths_next_week").html(`<b>${(data["expected_death"][l - 1] * Math.pow(data["r0"], 7) - data["new_death"][l - 1] * Math.pow(data["r0"], 7)).toFixed(0)}</b> less deaths a week from now.`);
+            $("#less_hosps").html(`<b>${(data["expected_hospitalized"][l - 1] - data["new_hospitalized"][l - 1]).toFixed(0)}</b> less hospitalizations today.`);
+            $("#less_hosps_next_week").html(`<b>${(data["expected_hospitalized"][l - 1] * Math.pow(data["r0"], 7) - data["new_hospitalized"][l - 1] * Math.pow(data["r0"], 7)).toFixed(0)}</b> less hospitalizations a week from now.`);
+            $("#r0").html(`r0 - ${data["r0"].toFixed(3)}`)
+        });
+    })
+
+    document.getElementById('stay_home').oninput = function () {
+        document.getElementById('range-field').innerText = `If ${this.value} less people were infected a week ago...`;
+    }
+</script>
+</body>
+</html>
